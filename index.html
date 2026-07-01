@@ -498,6 +498,7 @@ pattern="[0-9]*"
 
 <div class="buttons" style="margin:20px;text-align:center;">
 <button id="downloadPdfBtn" onclick="savePDF()" style="padding:10px 18px;font-size:16px;cursor:pointer;">📄 Download PDF</button>
+<button id="copyDataBtn" onclick="copyDataForExcel()" style="padding:10px 18px;font-size:16px;cursor:pointer;margin-left:10px;">📋 Copy Data for Excel</button>
 <button id="connectDriveBtn" onclick="connectGoogleDrive()" style="padding:10px 18px;font-size:16px;cursor:pointer;margin-left:10px;">☁️ Connect Google Drive</button>
 <button onclick="savePDFToDrive()" style="padding:10px 18px;font-size:16px;cursor:pointer;margin-left:10px;">☁️ Save PDF to Drive</button>
 
@@ -728,10 +729,9 @@ async function savePDF(){
    ds=`${d}-${m}-${y}`;
   }
 
-  const pdfBlob = pdf.output("blob");
   const fileName = `${bill} - ${party} - ${ds}.pdf`;
 
-  await uploadPDFToDrive(pdfBlob, fileName, ds, party);
+  pdf.save(fileName);
 
  }catch(e){
   console.error(e);
@@ -741,6 +741,40 @@ async function savePDF(){
  }
 }
 
+
+
+async function copyDataForExcel(){
+ const btn=document.getElementById('copyDataBtn');
+ try{
+  const party=(document.getElementById('partyname')?.value||'').trim();
+  const bill=(document.getElementById('billno')?.value||'').trim();
+
+  let ds='';
+  const dv=document.getElementById('date')?.value;
+  if(dv){
+   const [y,m,d]=dv.split('-');
+   ds=`${d}-${m}-${y}`;
+  }
+
+  const total=(document.getElementById('total')?.value||'').trim();
+  const maker=(document.getElementById('maker')?.value||'').trim();
+  const packer=(document.getElementById('packer')?.value||'').trim();
+
+  const row=[party,bill,ds,total,maker,packer].join('\t');
+
+  await navigator.clipboard.writeText(row);
+
+  if(btn){
+   const original=btn.textContent;
+   btn.textContent='✅ Copied!';
+   setTimeout(()=>{btn.textContent=original;},1500);
+  }
+
+ }catch(e){
+  console.error(e);
+  alert('Copy failed. Check console.');
+ }
+}
 
 
 window.uploadTestFile = async function () {
@@ -896,105 +930,7 @@ async function uploadCurrentHTML(){
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-<script>
-async function createFolder(name, parentId=null){
- const res = await fetch("https://www.googleapis.com/drive/v3/files",{
-  method:"POST",
-  headers:{
-   Authorization:"Bearer "+window.accessToken,
-   "Content-Type":"application/json"
-  },
-  body:JSON.stringify({
-   name:name,
-   mimeType:"application/vnd.google-apps.folder",
-   parents: parentId ? [parentId] : undefined
-  })
- });
- return (await res.json()).id;
-}
 
- const main = await createFolder("Sai Dyers Bills");
- const d = await createFolder(date, main);
- const p = await createFolder(party, d);
-
- const form = new FormData();
-
- form.append("metadata", new Blob([JSON.stringify({
-  name:fileName,
-  parents:[p],
-  mimeType:"application/pdf"
- })],{type:"application/json"}));
-
- form.append("file", blob);
-
- const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",{
-  method:"POST",
-  headers:{Authorization:"Bearer "+window.accessToken},
-  body:form
- });
-
- const data = await res.json();
-
- if(res.ok && data.id){
-  alert("Uploaded successfully!");
-  window.open("https://drive.google.com/file/d/"+data.id+"/view","_blank");
- } else {
-  alert("Upload failed");
-  console.log(data);
- }
-}
-
-
-</script>
-
-
-<script>
-async function createFolder(name, parentId=null){
- const res = await fetch("https://www.googleapis.com/drive/v3/files",{
-  method:"POST",
-  headers:{
-   Authorization:"Bearer "+window.accessToken,
-   "Content-Type":"application/json"
-  },
-  body:JSON.stringify({
-   name:name,
-   mimeType:"application/vnd.google-apps.folder",
-   parents: parentId ? [parentId] : undefined
-  })
- });
- return (await res.json()).id;
-}
-
- const main = await createFolder("Sai Dyers Bills");
- const d = await createFolder(date, main);
- const p = await createFolder(party, d);
-
- const form = new FormData();
- form.append("metadata", new Blob([JSON.stringify({
-  name:fileName,
-  parents:[p],
-  mimeType:"application/pdf"
- })],{type:"application/json"}));
- form.append("file", blob);
-
- const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",{
-  method:"POST",
-  headers:{Authorization:"Bearer "+window.accessToken},
-  body:form
- });
-
- const data = await res.json();
- if(res.ok && data.id){
-  alert("Uploaded to Drive");
-  window.open("https://drive.google.com/file/d/"+data.id+"/view","_blank");
- } else {
-  alert("Upload failed");
-  console.log(data);
- }
-}
-
-
-</script>
 
 
 <script>
@@ -1037,85 +973,7 @@ window.createFolder = __getOrCreateFolder;
 </script>
 
 
-<script>
-/* =========================
-   FLEX PDF PERFECT RENDERER
-   ========================= */
 
-  const original = document.querySelector('.sheet-container') || document.querySelector('.sheet') || document.body;
-
-  // clone for stable rendering
-  const clone = original.cloneNode(true);
-
-  // offscreen container
-  const wrap = document.createElement('div');
-  wrap.style.position = 'fixed';
-  wrap.style.left = '-10000px';
-  wrap.style.top = '0';
-  wrap.style.width = original.scrollWidth + 'px';
-  wrap.style.background = '#fff';
-
-  // FORCE FLEX STABILITY (CRITICAL)
-  clone.style.display = 'flex';
-  clone.style.flexWrap = 'nowrap';
-  clone.style.alignItems = 'flex-start';
-  clone.style.transform = 'none';
-  clone.style.width = '297mm';
-
-  // ensure pages don't shrink
-  const pages = clone.querySelectorAll('.page');
-  pages.forEach(p=>{
-    p.style.flex = '0 0 auto';
-    p.style.width = '148.5mm';
-    p.style.height = '210mm';
-  });
-
-  wrap.appendChild(clone);
-  document.body.appendChild(wrap);
-
-  try{
-
-    const canvas = await html2canvas(clone, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: "#ffffff",
-      scrollX: 0,
-      scrollY: 0
-    });
-
-    const img = canvas.toDataURL("image/png");
-
-    const {jsPDF} = window.jspdf;
-    const pdf = new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
-
-    pdf.addImage(img,"PNG",0,0,297,210);
-
-    const bill = (document.getElementById("billno")?.value || "Bill").trim();
-    const party = (document.getElementById("partyname")?.value || "Unknown").trim();
-
-    let dv = document.getElementById("date")?.value;
-    if(!dv){
-      dv = new Date().toISOString().slice(0,10);
-    }
-
-    const [y,m,d] = dv.split("-");
-    const ds = `${d}-${m}-${y}`;
-
-    const blob = pdf.output("blob");
-    const fileName = `${bill} - ${party} - ${ds}.pdf`;
-
-    // call existing uploader (unchanged)
-    await uploadPDFToDrive(blob, fileName, ds, party);
-
-  }catch(e){
-    console.error(e);
-    alert("PDF render failed");
-  }
-
-  document.body.removeChild(wrap);
-}
-
-</script>
 
 
 <script>
@@ -1220,7 +1078,15 @@ async function uploadPDFToDrive(blob,fileName,dateISO,party){
       return;
   }
 
-  alert("Saved successfully.");
+  const link=`https://drive.google.com/file/d/${file.id}/view`;
+
+  try{
+    await navigator.clipboard.writeText(link);
+    alert("Saved successfully.\nLink copied to clipboard:\n"+link);
+  }catch(e){
+    console.error(e);
+    alert("Saved successfully.\n"+link+"\n(Could not auto-copy link — copy it manually.)");
+  }
 }
 
 /* UPDATED SAVE FUNCTION */
@@ -1248,19 +1114,6 @@ async function savePDFToDrive(){
   await uploadPDFToDrive(blob,fileName,dateISO,party);
 }
 
-</script>
-
-
-<script>
-const APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbx_tac8zfW6w2xPQVqSey-JJiKebdT6EMEnY5el5sSHs6jbQhD-RLm-Q7j_Fb0qrzAg/exec";
-async function saveInvoiceToSheets(data){
- const response=await fetch(APPS_SCRIPT_URL,{
-  method:"POST",
-  headers:{"Content-Type":"application/json"},
-  body:JSON.stringify(data)
- });
- return await response.json();
-}
 </script>
 
 </body>
